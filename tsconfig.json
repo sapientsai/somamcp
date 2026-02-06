@@ -1,8 +1,11 @@
 {
   "extends": "ts-builds/tsconfig",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "lib"
+    "rootDir": ".",
+    "outDir": "lib",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "test/**/*", "vitest.config.ts", "tsdown.config.ts"]
 }
