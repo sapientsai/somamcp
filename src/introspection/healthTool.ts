@@ -6,7 +6,7 @@ export const createHealthTool = <T extends FastMCPSessionAuth>(getHealth: () => 
   annotations: {
     readOnlyHint: true,
   },
-  description: "Returns health and status information for this cell including uptime, sessions, and synapse status",
+  description: "Returns health and status information for this cell including uptime, sessions, and gateway status",
   execute: () => Promise.resolve(JSON.stringify(getHealth(), null, 2)),
   name: "soma_health",
 })

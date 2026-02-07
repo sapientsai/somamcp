@@ -1,6 +1,6 @@
 import type { Tool as MCPTool } from "@modelcontextprotocol/sdk/types.js"
 
-export type SynapseConfig = {
+export type GatewayConfig = {
   id: string
   name?: string
   proxyTools?: boolean
@@ -10,34 +10,34 @@ export type SynapseConfig = {
   url: string
 }
 
-export type SynapseStatus = "connected" | "connecting" | "disconnected" | "error"
+export type GatewayStatus = "connected" | "connecting" | "disconnected" | "error"
 
-export type SynapseInfo = {
+export type GatewayInfo = {
   id: string
   name: string
   remoteTools: ReadonlyArray<{ description?: string; name: string }>
-  status: SynapseStatus
+  status: GatewayStatus
   url: string
 }
 
-export type SynapseInstance = {
-  readonly config: SynapseConfig
-  readonly info: SynapseInfo
+export type GatewayInstance = {
+  readonly config: GatewayConfig
+  readonly info: GatewayInfo
   readonly name: string
-  readonly status: SynapseStatus
+  readonly status: GatewayStatus
   readonly tools: ReadonlyArray<MCPTool>
   callTool: (name: string, args?: Record<string, unknown>) => Promise<unknown>
   connect: () => Promise<void>
   disconnect: () => Promise<void>
 }
 
-export type SynapseManagerInstance = {
+export type GatewayManagerInstance = {
   readonly connectedCount: number
   readonly totalCount: number
-  add: (config: SynapseConfig) => SynapseInstance
+  add: (config: GatewayConfig) => GatewayInstance
   connectAll: () => Promise<void>
   disconnectAll: () => Promise<void>
-  get: (id: string) => SynapseInstance | undefined
-  getAll: () => ReadonlyArray<SynapseInstance>
-  getInfoAll: () => ReadonlyArray<SynapseInfo>
+  get: (id: string) => GatewayInstance | undefined
+  getAll: () => ReadonlyArray<GatewayInstance>
+  getInfoAll: () => ReadonlyArray<GatewayInfo>
 }

@@ -14,11 +14,11 @@ import type { Hono } from "hono"
 
 import { registerArtifacts } from "./artifacts/ArtifactManager.js"
 import { createDashboardArtifact } from "./artifacts/DashboardArtifact.js"
+import { createGatewayManager } from "./gateway/GatewayManager.js"
+import { createProxiedTools } from "./gateway/toolProxy.js"
 import { createCapabilitiesTool } from "./introspection/capabilitiesTool.js"
 import { createConnectionsTool } from "./introspection/connectionsTool.js"
 import { createHealthTool } from "./introspection/healthTool.js"
-import { createSynapseManager } from "./synapse/SynapseManager.js"
-import { createProxiedTools } from "./synapse/toolProxy.js"
 import { NoopTelemetry } from "./telemetry/NoopTelemetry.js"
 import type { TelemetryCollector } from "./telemetry/TelemetryCollector.js"
 import { wrapPrompt, wrapResource, wrapTool } from "./telemetry/telemetryWrapper.js"
@@ -31,7 +31,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     artifacts,
     enableDashboard,
     enableIntrospection,
-    synapses,
+    gateways,
     telemetry: telemetryOption,
     ...serverOptions
   } = options
@@ -39,7 +39,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
   const cellName = serverOptions.name
   const telemetry: TelemetryCollector = telemetryOption ?? NoopTelemetry
   const server = new FastMCP<T>(serverOptions as ServerOptions<T>)
-  const synapseManager = createSynapseManager(telemetry)
+  const gatewayManager = createGatewayManager(telemetry)
 
   const registeredTools: Array<{ description?: string; name: string }> = []
   const registeredResources: Array<{
@@ -51,10 +51,10 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
   // eslint-disable-next-line functional/no-let -- closure state for factory
   let startedAt = 0
 
-  // Register synapses
-  if (synapses) {
-    for (const config of synapses) {
-      synapseManager.add(config)
+  // Register gateways
+  if (gateways) {
+    for (const config of gateways) {
+      gatewayManager.add(config)
     }
   }
 
@@ -70,9 +70,9 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
           : server.serverState === ServerState.Error
             ? "error"
             : "stopped",
-      synapses: {
-        connected: synapseManager.connectedCount,
-        total: synapseManager.totalCount,
+      gateways: {
+        connected: gatewayManager.connectedCount,
+        total: gatewayManager.totalCount,
       },
       uptime,
     }
@@ -88,7 +88,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
   if (enableIntrospection !== false) {
     server.addTool(createHealthTool<T>(() => getHealth()))
     server.addTool(createCapabilitiesTool<T>(() => getCapabilities()))
-    server.addTool(createConnectionsTool<T>(() => synapseManager.getInfoAll()))
+    server.addTool(createConnectionsTool<T>(() => gatewayManager.getInfoAll()))
   }
 
   // Register artifacts on the Hono app
@@ -98,7 +98,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
       createDashboardArtifact(
         () => getHealth(),
         () => getCapabilities(),
-        () => synapseManager.getInfoAll(),
+        () => gatewayManager.getInfoAll(),
       ),
     )
   }
@@ -192,9 +192,9 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
 
     getCapabilities,
 
-    getHealth,
+    getGatewayManager: () => gatewayManager,
 
-    getSynapseManager: () => synapseManager,
+    getHealth,
 
     removePrompt: (name: string): void => {
       server.removePrompt(name)
@@ -219,12 +219,12 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
 
       await server.start(options)
 
-      // Connect synapses and proxy their tools
-      await synapseManager.connectAll()
+      // Connect gateways and proxy their tools
+      await gatewayManager.connectAll()
 
-      for (const synapse of synapseManager.getAll()) {
-        if (synapse.status === "connected" && synapse.config.proxyTools !== false) {
-          const proxiedTools = createProxiedTools<T>(synapse)
+      for (const gateway of gatewayManager.getAll()) {
+        if (gateway.status === "connected" && gateway.config.proxyTools !== false) {
+          const proxiedTools = createProxiedTools<T>(gateway)
           for (const tool of proxiedTools) {
             server.addTool(tool)
           }
@@ -233,7 +233,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     },
 
     async stop(): Promise<void> {
-      await synapseManager.disconnectAll()
+      await gatewayManager.disconnectAll()
       await server.stop()
 
       telemetry.recordEvent({

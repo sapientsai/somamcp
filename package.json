@@ -36,7 +36,7 @@
     "cell",
     "architecture",
     "fastmcp",
-    "synapse"
+    "gateway"
   ],
   "author": "Jordan Burke",
   "license": "MIT",

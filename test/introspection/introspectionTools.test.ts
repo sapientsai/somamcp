@@ -13,7 +13,7 @@ describe("introspection tools", () => {
         name: "test",
         startedAt: 1000,
         status: "running",
-        synapses: { connected: 1, total: 2 },
+        gateways: { connected: 1, total: 2 },
         uptime: 5000,
       }
 
@@ -54,7 +54,7 @@ describe("introspection tools", () => {
       expect(parsed).toEqual([])
     })
 
-    it("returns synapse info", async () => {
+    it("returns gateway info", async () => {
       const connections = [
         {
           id: "remote-1",

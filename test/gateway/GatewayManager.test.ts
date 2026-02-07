@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { createSynapseManager } from "../../src/synapse/SynapseManager.js"
+import { createGatewayManager } from "../../src/gateway/GatewayManager.js"
 import { NoopTelemetry } from "../../src/telemetry/NoopTelemetry.js"
 
-describe("SynapseManager", () => {
-  it("adds and retrieves synapses", () => {
-    const manager = createSynapseManager(NoopTelemetry)
+describe("GatewayManager", () => {
+  it("adds and retrieves gateways", () => {
+    const manager = createGatewayManager(NoopTelemetry)
 
     manager.add({ id: "a", url: "http://localhost:3001/mcp" })
     manager.add({ id: "b", url: "http://localhost:3002/mcp" })
@@ -16,8 +16,8 @@ describe("SynapseManager", () => {
     expect(manager.get("c")).toBeUndefined()
   })
 
-  it("returns all synapses", () => {
-    const manager = createSynapseManager(NoopTelemetry)
+  it("returns all gateways", () => {
+    const manager = createGatewayManager(NoopTelemetry)
     manager.add({ id: "x", url: "http://localhost:3001/mcp" })
     manager.add({ id: "y", url: "http://localhost:3002/mcp" })
 
@@ -26,14 +26,14 @@ describe("SynapseManager", () => {
   })
 
   it("reports connected count", () => {
-    const manager = createSynapseManager(NoopTelemetry)
+    const manager = createGatewayManager(NoopTelemetry)
     manager.add({ id: "x", url: "http://localhost:3001/mcp" })
 
     expect(manager.connectedCount).toBe(0)
   })
 
-  it("returns info for all synapses", () => {
-    const manager = createSynapseManager(NoopTelemetry)
+  it("returns info for all gateways", () => {
+    const manager = createGatewayManager(NoopTelemetry)
     manager.add({ id: "a", name: "Alpha", url: "http://localhost:3001/mcp" })
 
     const infos = manager.getInfoAll()

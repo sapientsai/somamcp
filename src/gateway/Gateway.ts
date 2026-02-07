@@ -3,18 +3,18 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { Tool as MCPTool } from "@modelcontextprotocol/sdk/types.js"
 
 import type { TelemetryCollector } from "../telemetry/TelemetryCollector.js"
-import type { SynapseConfig, SynapseInstance, SynapseStatus } from "./types.js"
+import type { GatewayConfig, GatewayInstance, GatewayStatus } from "./types.js"
 
-export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollector): SynapseInstance => {
+export const createGateway = (config: GatewayConfig, telemetry: TelemetryCollector): GatewayInstance => {
   /* eslint-disable functional/no-let -- closure state for factory */
   let client: Client | undefined
   let transport: StreamableHTTPClientTransport | undefined
   let remoteTools: MCPTool[] = []
-  let currentStatus: SynapseStatus = "disconnected"
+  let currentStatus: GatewayStatus = "disconnected"
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
   /* eslint-enable functional/no-let */
 
-  const synapseName = config.name ?? config.id
+  const gatewayName = config.name ?? config.id
 
   const scheduleReconnect = (): void => {
     const interval = config.reconnectIntervalMs ?? 5000
@@ -23,14 +23,14 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
     }, interval)
   }
 
-  const instance: SynapseInstance = {
+  const instance: GatewayInstance = {
     get config() {
       return config
     },
     get info() {
       return {
         id: config.id,
-        name: synapseName,
+        name: gatewayName,
         remoteTools: remoteTools.map((t) => ({
           description: t.description,
           name: t.name,
@@ -40,7 +40,7 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
       }
     },
     get name() {
-      return synapseName
+      return gatewayName
     },
     get status() {
       return currentStatus
@@ -51,7 +51,7 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
 
     async callTool(name: string, args: Record<string, unknown> = {}): Promise<unknown> {
       if (!client || currentStatus !== "connected") {
-        throw new Error(`Synapse ${config.id} is not connected`)
+        throw new Error(`Gateway ${config.id} is not connected`)
       }
       const result = await client.callTool({ arguments: args, name })
       return result
@@ -67,7 +67,7 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
         transport = new StreamableHTTPClientTransport(new URL(config.url))
 
         client = new Client({
-          name: `soma-synapse-${config.id}`,
+          name: `soma-gateway-${config.id}`,
           version: "1.0.0",
         })
 
@@ -85,9 +85,9 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
             url: config.url,
           },
           durationMs: Date.now() - start,
-          name: synapseName,
+          name: gatewayName,
           timestamp: start,
-          type: "synapse.connect",
+          type: "gateway.connect",
         })
       } catch (error) {
         currentStatus = "error"
@@ -95,9 +95,9 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
         telemetry.recordEvent({
           data: { id: config.id, url: config.url },
           error: error instanceof Error ? error.message : String(error),
-          name: synapseName,
+          name: gatewayName,
           timestamp: start,
-          type: "synapse.error",
+          type: "gateway.error",
         })
 
         if (config.reconnect !== false) {
@@ -127,9 +127,9 @@ export const createSynapse = (config: SynapseConfig, telemetry: TelemetryCollect
 
       telemetry.recordEvent({
         data: { id: config.id },
-        name: synapseName,
+        name: gatewayName,
         timestamp: Date.now(),
-        type: "synapse.disconnect",
+        type: "gateway.disconnect",
       })
     },
   }

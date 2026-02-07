@@ -91,7 +91,7 @@ describe("Cell", () => {
     expect(health.name).toBe("health-cell")
     expect(health.uptime).toBe(0)
     expect(health.activeSessions).toBe(0)
-    expect(health.synapses.total).toBe(0)
+    expect(health.gateways.total).toBe(0)
   })
 
   it("exposes the Hono app via getApp()", () => {
@@ -117,16 +117,16 @@ describe("Cell", () => {
     expect(capabilities.tools.find((t) => t.name === "soma_health")).toBeUndefined()
   })
 
-  it("getSynapseManager returns the manager", () => {
+  it("getGatewayManager returns the manager", () => {
     const cell = createCell({
       enableDashboard: false,
       enableIntrospection: false,
+      gateways: [{ id: "remote", url: "http://localhost:9999/mcp" }],
       name: "syn-cell",
-      synapses: [{ id: "remote", url: "http://localhost:9999/mcp" }],
       version: "1.0.0",
     })
 
-    const manager = cell.getSynapseManager()
+    const manager = cell.getGatewayManager()
     expect(manager.totalCount).toBe(1)
   })
 })

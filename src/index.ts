@@ -14,15 +14,15 @@ export { createDashboardArtifact, registerArtifacts } from "./artifacts/index.js
 // Introspection
 export { createCapabilitiesTool, createConnectionsTool, createHealthTool } from "./introspection/index.js"
 
-// Synapse
+// Gateway
 export type {
-  SynapseConfig,
-  SynapseInfo,
-  SynapseInstance,
-  SynapseManagerInstance,
-  SynapseStatus,
-} from "./synapse/index.js"
-export { createProxiedTools, createSynapse, createSynapseManager } from "./synapse/index.js"
+  GatewayConfig,
+  GatewayInfo,
+  GatewayInstance,
+  GatewayManagerInstance,
+  GatewayStatus,
+} from "./gateway/index.js"
+export { createGateway, createGatewayManager, createProxiedTools } from "./gateway/index.js"
 
 // Re-export key FastMCP types
 export type {

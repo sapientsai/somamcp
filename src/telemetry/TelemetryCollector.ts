@@ -7,9 +7,9 @@ export type TelemetryEventType =
   | "resource.error"
   | "prompt.load"
   | "prompt.error"
-  | "synapse.connect"
-  | "synapse.disconnect"
-  | "synapse.error"
+  | "gateway.connect"
+  | "gateway.disconnect"
+  | "gateway.error"
   | "session.connect"
   | "session.disconnect"
 

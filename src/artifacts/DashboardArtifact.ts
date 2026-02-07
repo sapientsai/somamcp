@@ -1,11 +1,11 @@
-import type { SynapseInfo } from "../synapse/types.js"
+import type { GatewayInfo } from "../gateway/types.js"
 import type { CellCapabilities, CellHealth } from "../types.js"
 import type { ArtifactConfig } from "./types.js"
 
 export const createDashboardArtifact = (
   getHealth: () => CellHealth,
   getCapabilities: () => CellCapabilities,
-  getConnections: () => ReadonlyArray<SynapseInfo>,
+  getConnections: () => ReadonlyArray<GatewayInfo>,
 ): ArtifactConfig => ({
   handler: () => {
     const health = getHealth()
@@ -23,7 +23,7 @@ export const createDashboardArtifact = (
 const renderDashboard = (
   health: CellHealth,
   capabilities: CellCapabilities,
-  connections: ReadonlyArray<SynapseInfo>,
+  connections: ReadonlyArray<GatewayInfo>,
 ): string => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,7 +60,7 @@ const renderDashboard = (
       <div class="metric"><span class="metric-label">Status:</span> <span class="status ${health.status}">${health.status}</span></div>
       <div class="metric"><span class="metric-label">Uptime:</span> <span class="metric-value">${formatUptime(health.uptime)}</span></div>
       <div class="metric"><span class="metric-label">Sessions:</span> <span class="metric-value">${health.activeSessions}</span></div>
-      <div class="metric"><span class="metric-label">Synapses:</span> <span class="metric-value">${health.synapses.connected}/${health.synapses.total}</span></div>
+      <div class="metric"><span class="metric-label">Gateways:</span> <span class="metric-value">${health.gateways.connected}/${health.gateways.total}</span></div>
     </div>
     <div class="card">
       <h2>Tools (${capabilities.tools.length})</h2>
@@ -77,7 +77,7 @@ const renderDashboard = (
     ${
       connections.length > 0
         ? `<div class="card">
-      <h2>Synapses (${connections.length})</h2>
+      <h2>Gateways (${connections.length})</h2>
       <ul>${connections.map((s) => `<li><strong>${s.name}</strong> <span class="status ${s.status}">${s.status}</span> <span class="desc">${s.url}</span></li>`).join("")}</ul>
     </div>`
         : ""

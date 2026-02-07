@@ -13,14 +13,14 @@ import type {
 import type { Hono } from "hono"
 
 import type { ArtifactConfig } from "./artifacts/types.js"
-import type { SynapseConfig, SynapseManagerInstance } from "./synapse/types.js"
+import type { GatewayConfig, GatewayManagerInstance } from "./gateway/types.js"
 import type { TelemetryCollector } from "./telemetry/TelemetryCollector.js"
 
 export type CellOptions<T extends FastMCPSessionAuth = FastMCPSessionAuth> = ServerOptions<T> & {
   artifacts?: ArtifactConfig[]
   enableDashboard?: boolean
   enableIntrospection?: boolean
-  synapses?: SynapseConfig[]
+  gateways?: GatewayConfig[]
   telemetry?: TelemetryCollector
 }
 
@@ -29,7 +29,7 @@ export type CellHealth = {
   name: string
   startedAt: number
   status: "running" | "stopped" | "error"
-  synapses: {
+  gateways: {
     connected: number
     total: number
   }
@@ -60,8 +60,8 @@ export type CellInstance<T extends FastMCPSessionAuth = FastMCPSessionAuth> = {
   addTools: <P extends ToolParameters>(tools: Tool<T, P>[]) => void
   getApp: () => Hono
   getCapabilities: () => CellCapabilities
+  getGatewayManager: () => GatewayManagerInstance
   getHealth: () => CellHealth
-  getSynapseManager: () => SynapseManagerInstance
   removePrompt: (name: string) => void
   removeResource: (name: string) => void
   removeTool: (name: string) => void
