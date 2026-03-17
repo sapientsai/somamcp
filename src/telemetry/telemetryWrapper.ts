@@ -1,35 +1,89 @@
-import type { FastMCPSessionAuth, InputPrompt, InputPromptArgument, Resource, Tool, ToolParameters } from "fastmcp"
+import type {
+  ContentResult,
+  FastMCPSessionAuth,
+  InputPrompt,
+  InputPromptArgument,
+  Resource,
+  Tool,
+  ToolParameters,
+} from "fastmcp"
+import { Try } from "functype"
 
-import type { TelemetryCollector } from "./TelemetryCollector.js"
+import { createEnrichedError } from "./EnrichedError.js"
+import type { TelemetryCollector, ToolCaptureConfig } from "./TelemetryCollector.js"
+
+const DEFAULT_MAX_OUTPUT_SIZE = 10000
+
+const redactFields = (args: Record<string, unknown>, fields?: ReadonlyArray<string>): Record<string, unknown> => {
+  if (!fields || fields.length === 0) return args
+  return Object.fromEntries(
+    Object.entries(args).map(([key, value]) => [key, fields.includes(key) ? "[REDACTED]" : value]),
+  )
+}
+
+const truncateOutput = (result: unknown, maxSize: number = DEFAULT_MAX_OUTPUT_SIZE): unknown => {
+  const str = typeof result === "string" ? result : JSON.stringify(result)
+  if (str && str.length > maxSize) {
+    return `${str.slice(0, maxSize)}...[truncated, ${str.length} total chars]`
+  }
+  return result
+}
+
+const toTry = <T>(promise: Promise<T>): Promise<Try<T>> => Try.fromPromise(promise)
 
 export const wrapTool = <T extends FastMCPSessionAuth, P extends ToolParameters>(
   tool: Tool<T, P>,
   telemetry: TelemetryCollector,
+  captureConfig?: ToolCaptureConfig,
 ): Tool<T, P> => ({
   ...tool,
   execute: async (args, context) => {
+    const level = captureConfig?.captureLevel ?? "full"
+    if (level === "none") return tool.execute(args, context)
+
     const start = Date.now()
-    try {
-      const result = await tool.execute(args, context)
-      telemetry.recordEvent({
-        data: { name: tool.name },
-        durationMs: Date.now() - start,
-        name: tool.name,
-        timestamp: start,
-        type: "tool.execute",
-      })
-      return result
-    } catch (error) {
-      telemetry.recordEvent({
-        data: { name: tool.name },
-        durationMs: Date.now() - start,
-        error: error instanceof Error ? error.message : String(error),
-        name: tool.name,
-        timestamp: start,
-        type: "tool.error",
-      })
-      throw error
-    }
+    const { requestId, sessionId } = context
+    const inputData =
+      level === "full" ? redactFields(args as Record<string, unknown>, captureConfig?.redactInputFields) : undefined
+
+    const result = await toTry(tool.execute(args, context))
+
+    return result.fold(
+      (error) => {
+        const enriched = createEnrichedError(error, { toolName: tool.name })
+        telemetry.recordEvent({
+          data: { name: tool.name },
+          durationMs: Date.now() - start,
+          error: enriched.message,
+          errorCategory: enriched.errorCategory,
+          errorStack: error.stack,
+          input: inputData,
+          name: tool.name,
+          requestId,
+          sessionId,
+          timestamp: start,
+          type: "tool.error",
+        })
+        return {
+          content: [{ text: JSON.stringify(enriched, null, 2), type: "text" as const }],
+          isError: true,
+        } satisfies ContentResult
+      },
+      (value) => {
+        telemetry.recordEvent({
+          data: { name: tool.name },
+          durationMs: Date.now() - start,
+          input: inputData,
+          name: tool.name,
+          output: level === "full" ? truncateOutput(value, captureConfig?.maxOutputSize) : undefined,
+          requestId,
+          sessionId,
+          timestamp: start,
+          type: "tool.execute",
+        })
+        return value
+      },
+    )
   },
 })
 
@@ -40,27 +94,34 @@ export const wrapResource = <T extends FastMCPSessionAuth>(
   ...resource,
   load: async (auth) => {
     const start = Date.now()
-    try {
-      const result = await resource.load(auth)
-      telemetry.recordEvent({
-        data: { name: resource.name, uri: resource.uri },
-        durationMs: Date.now() - start,
-        name: resource.name,
-        timestamp: start,
-        type: "resource.load",
-      })
-      return result
-    } catch (error) {
-      telemetry.recordEvent({
-        data: { name: resource.name, uri: resource.uri },
-        durationMs: Date.now() - start,
-        error: error instanceof Error ? error.message : String(error),
-        name: resource.name,
-        timestamp: start,
-        type: "resource.error",
-      })
-      throw error
-    }
+    const result = await toTry(resource.load(auth))
+
+    return result.fold(
+      (error) => {
+        const enriched = createEnrichedError(error)
+        telemetry.recordEvent({
+          data: { name: resource.name, uri: resource.uri },
+          durationMs: Date.now() - start,
+          error: enriched.message,
+          errorCategory: enriched.errorCategory,
+          errorStack: error.stack,
+          name: resource.name,
+          timestamp: start,
+          type: "resource.error",
+        })
+        throw error
+      },
+      (value) => {
+        telemetry.recordEvent({
+          data: { name: resource.name, uri: resource.uri },
+          durationMs: Date.now() - start,
+          name: resource.name,
+          timestamp: start,
+          type: "resource.load",
+        })
+        return value
+      },
+    )
   },
 })
 
@@ -74,26 +135,33 @@ export const wrapPrompt = <
   ...prompt,
   load: async (args, auth) => {
     const start = Date.now()
-    try {
-      const result = await prompt.load(args, auth)
-      telemetry.recordEvent({
-        data: { name: prompt.name },
-        durationMs: Date.now() - start,
-        name: prompt.name,
-        timestamp: start,
-        type: "prompt.load",
-      })
-      return result
-    } catch (error) {
-      telemetry.recordEvent({
-        data: { name: prompt.name },
-        durationMs: Date.now() - start,
-        error: error instanceof Error ? error.message : String(error),
-        name: prompt.name,
-        timestamp: start,
-        type: "prompt.error",
-      })
-      throw error
-    }
+    const result = await toTry(prompt.load(args, auth))
+
+    return result.fold(
+      (error) => {
+        const enriched = createEnrichedError(error)
+        telemetry.recordEvent({
+          data: { name: prompt.name },
+          durationMs: Date.now() - start,
+          error: enriched.message,
+          errorCategory: enriched.errorCategory,
+          errorStack: error.stack,
+          name: prompt.name,
+          timestamp: start,
+          type: "prompt.error",
+        })
+        throw error
+      },
+      (value) => {
+        telemetry.recordEvent({
+          data: { name: prompt.name },
+          durationMs: Date.now() - start,
+          name: prompt.name,
+          timestamp: start,
+          type: "prompt.load",
+        })
+        return value
+      },
+    )
   },
 })

@@ -1,15 +1,25 @@
 import { describe, expect, it, vi } from "vitest"
 
-import type { TelemetryCollector } from "../../src/telemetry/TelemetryCollector.js"
+import type { TelemetryCollector, TelemetryEvent } from "../../src/telemetry/TelemetryCollector.js"
 import { wrapPrompt, wrapResource, wrapTool } from "../../src/telemetry/telemetryWrapper.js"
 
-const createMockTelemetry = (): TelemetryCollector & { events: unknown[] } => {
-  const events: unknown[] = []
+const createMockTelemetry = (): TelemetryCollector & { events: TelemetryEvent[] } => {
+  const events: TelemetryEvent[] = []
   return {
     events,
     recordEvent: (event) => events.push(event),
   }
 }
+
+const createMockContext = (overrides?: { requestId?: string; sessionId?: string }) =>
+  ({
+    client: { version: undefined },
+    log: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+    reportProgress: vi.fn(),
+    requestId: overrides?.requestId,
+    sessionId: overrides?.sessionId,
+    streamContent: vi.fn(),
+  }) as never
 
 describe("telemetryWrapper", () => {
   describe("wrapTool", () => {
@@ -21,7 +31,7 @@ describe("telemetryWrapper", () => {
       }
 
       const wrapped = wrapTool(tool, telemetry)
-      const result = await wrapped.execute({}, {} as never)
+      const result = await wrapped.execute({}, createMockContext())
 
       expect(result).toBe("result")
       expect(telemetry.events).toHaveLength(1)
@@ -31,7 +41,60 @@ describe("telemetryWrapper", () => {
       })
     })
 
-    it("records tool error and re-throws", async () => {
+    it("captures input and output at full capture level", async () => {
+      const telemetry = createMockTelemetry()
+      const tool = {
+        execute: vi.fn().mockResolvedValue("result-data"),
+        name: "capture-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry)
+      await wrapped.execute({ query: "hello" }, createMockContext())
+
+      expect(telemetry.events[0]).toMatchObject({
+        input: { query: "hello" },
+        output: "result-data",
+        type: "tool.execute",
+      })
+    })
+
+    it("captures sessionId and requestId from context", async () => {
+      const telemetry = createMockTelemetry()
+      const tool = {
+        execute: vi.fn().mockResolvedValue("ok"),
+        name: "ctx-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry)
+      await wrapped.execute({}, createMockContext({ requestId: "req-1", sessionId: "sess-1" }))
+
+      expect(telemetry.events[0]).toMatchObject({
+        requestId: "req-1",
+        sessionId: "sess-1",
+      })
+    })
+
+    it("returns enriched error as ContentResult with isError", async () => {
+      const telemetry = createMockTelemetry()
+      const tool = {
+        execute: vi.fn().mockRejectedValue(new Error("connection refused")),
+        name: "fail-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry)
+      const result = (await wrapped.execute({}, createMockContext())) as {
+        content: Array<{ text: string; type: string }>
+        isError: boolean
+      }
+
+      expect(result.isError).toBe(true)
+      expect(result.content).toHaveLength(1)
+      const parsed = JSON.parse(result.content[0].text) as { errorCategory: string; message: string }
+      expect(parsed.errorCategory).toBe("gateway")
+      expect(parsed.message).toBe("connection refused")
+    })
+
+    it("records error details in telemetry event", async () => {
       const telemetry = createMockTelemetry()
       const tool = {
         execute: vi.fn().mockRejectedValue(new Error("boom")),
@@ -39,14 +102,81 @@ describe("telemetryWrapper", () => {
       }
 
       const wrapped = wrapTool(tool, telemetry)
-      await expect(wrapped.execute({}, {} as never)).rejects.toThrow("boom")
+      await wrapped.execute({}, createMockContext())
 
       expect(telemetry.events).toHaveLength(1)
       expect(telemetry.events[0]).toMatchObject({
         error: "boom",
+        errorCategory: "internal",
         name: "fail-tool",
         type: "tool.error",
       })
+      expect(telemetry.events[0].errorStack).toBeDefined()
+    })
+
+    it("skips telemetry when captureLevel is none", async () => {
+      const telemetry = createMockTelemetry()
+      const tool = {
+        execute: vi.fn().mockResolvedValue("result"),
+        name: "no-capture-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry, { captureLevel: "none" })
+      const result = await wrapped.execute({}, createMockContext())
+
+      expect(result).toBe("result")
+      expect(telemetry.events).toHaveLength(0)
+    })
+
+    it("omits input and output when captureLevel is metadata", async () => {
+      const telemetry = createMockTelemetry()
+      const tool = {
+        execute: vi.fn().mockResolvedValue("result"),
+        name: "meta-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry, { captureLevel: "metadata" })
+      await wrapped.execute({ secret: "value" }, createMockContext())
+
+      expect(telemetry.events[0].input).toBeUndefined()
+      expect(telemetry.events[0].output).toBeUndefined()
+      expect(telemetry.events[0]).toMatchObject({
+        name: "meta-tool",
+        type: "tool.execute",
+      })
+    })
+
+    it("redacts specified input fields", async () => {
+      const telemetry = createMockTelemetry()
+      const tool = {
+        execute: vi.fn().mockResolvedValue("ok"),
+        name: "redact-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry, { redactInputFields: ["password", "token"] })
+      await wrapped.execute({ password: "secret", query: "hello", token: "abc" }, createMockContext())
+
+      expect(telemetry.events[0].input).toEqual({
+        password: "[REDACTED]",
+        query: "hello",
+        token: "[REDACTED]",
+      })
+    })
+
+    it("truncates large output", async () => {
+      const telemetry = createMockTelemetry()
+      const largeOutput = "x".repeat(200)
+      const tool = {
+        execute: vi.fn().mockResolvedValue(largeOutput),
+        name: "large-tool",
+      }
+
+      const wrapped = wrapTool(tool, telemetry, { maxOutputSize: 50 })
+      await wrapped.execute({}, createMockContext())
+
+      const output = telemetry.events[0].output as string
+      expect(output).toContain("...[truncated,")
+      expect(output.length).toBeLessThan(200)
     })
 
     it("preserves tool metadata", () => {
@@ -83,19 +213,20 @@ describe("telemetryWrapper", () => {
       })
     })
 
-    it("records resource error and re-throws", async () => {
+    it("records resource error with classification and re-throws", async () => {
       const telemetry = createMockTelemetry()
       const resource = {
-        load: vi.fn().mockRejectedValue(new Error("load failed")),
+        load: vi.fn().mockRejectedValue(new Error("not found")),
         name: "fail-resource",
         uri: "res://fail",
       }
 
       const wrapped = wrapResource(resource, telemetry)
-      await expect(wrapped.load()).rejects.toThrow("load failed")
+      await expect(wrapped.load()).rejects.toThrow("not found")
 
       expect(telemetry.events[0]).toMatchObject({
-        error: "load failed",
+        error: "not found",
+        errorCategory: "not_found",
         type: "resource.error",
       })
     })
@@ -120,18 +251,19 @@ describe("telemetryWrapper", () => {
       })
     })
 
-    it("records prompt error and re-throws", async () => {
+    it("records prompt error with classification and re-throws", async () => {
       const telemetry = createMockTelemetry()
       const prompt = {
-        load: vi.fn().mockRejectedValue(new Error("prompt failed")),
+        load: vi.fn().mockRejectedValue(new Error("unauthorized access")),
         name: "fail-prompt",
       }
 
       const wrapped = wrapPrompt(prompt, telemetry)
-      await expect(wrapped.load({})).rejects.toThrow("prompt failed")
+      await expect(wrapped.load({})).rejects.toThrow("unauthorized access")
 
       expect(telemetry.events[0]).toMatchObject({
-        error: "prompt failed",
+        error: "unauthorized access",
+        errorCategory: "auth",
         type: "prompt.error",
       })
     })

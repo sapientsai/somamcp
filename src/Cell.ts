@@ -23,7 +23,7 @@ import { createLogLayerTelemetry } from "./telemetry/LogLayerTelemetry.js"
 import { NoopTelemetry } from "./telemetry/NoopTelemetry.js"
 import type { TelemetryCollector } from "./telemetry/TelemetryCollector.js"
 import { wrapPrompt, wrapResource, wrapTool } from "./telemetry/telemetryWrapper.js"
-import type { CellCapabilities, CellHealth, CellInstance, CellOptions } from "./types.js"
+import type { CellCapabilities, CellHealth, CellInstance, CellOptions, CellToolOptions } from "./types.js"
 
 export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
   options: CellOptions<T>,
@@ -127,8 +127,9 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     })
   })
 
-  const addTool = <P extends ToolParameters>(tool: Tool<T, P>): void => {
-    const wrapped = wrapTool(tool, telemetry)
+  const addTool = <P extends ToolParameters>(tool: Tool<T, P> | CellToolOptions<T, P>): void => {
+    const captureConfig = "captureConfig" in tool ? tool.captureConfig : undefined
+    const wrapped = wrapTool(tool, telemetry, captureConfig)
     server.addTool(wrapped)
     registeredTools.push({
       description: tool.description,
@@ -227,7 +228,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
 
       for (const gateway of gatewayManager.getAll()) {
         if (gateway.status === "connected" && gateway.config.proxyTools !== false) {
-          const proxiedTools = createProxiedTools<T>(gateway)
+          const proxiedTools = createProxiedTools<T>(gateway, telemetry)
           for (const tool of proxiedTools) {
             server.addTool(tool)
           }

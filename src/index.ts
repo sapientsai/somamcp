@@ -1,10 +1,26 @@
 // Core
 export { createCell } from "./Cell.js"
-export type { CellCapabilities, CellHealth, CellInstance, CellOptions, CellTool } from "./types.js"
+export type { CellCapabilities, CellHealth, CellInstance, CellOptions, CellTool, CellToolOptions } from "./types.js"
 
 // Telemetry
-export type { TelemetryCollector, TelemetryEvent, TelemetryEventType } from "./telemetry/index.js"
-export { createConsoleTelemetry, createLogLayerTelemetry, NoopTelemetry } from "./telemetry/index.js"
+export type {
+  CaptureLevel,
+  ErrorCategory,
+  TelemetryCollector,
+  TelemetryEvent,
+  TelemetryEventType,
+  ToolCaptureConfig,
+} from "./telemetry/index.js"
+export type { EnrichedErrorResponse, JsonFileTelemetryOptions } from "./telemetry/index.js"
+export {
+  classifyError,
+  createCompositeTelemetry,
+  createConsoleTelemetry,
+  createEnrichedError,
+  createJsonFileTelemetry,
+  createLogLayerTelemetry,
+  NoopTelemetry,
+} from "./telemetry/index.js"
 export { wrapPrompt, wrapResource, wrapTool } from "./telemetry/index.js"
 
 // Logging

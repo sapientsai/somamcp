@@ -15,7 +15,7 @@ import type { ILogLayer } from "loglayer"
 
 import type { ArtifactConfig } from "./artifacts/types.js"
 import type { GatewayConfig, GatewayManagerInstance } from "./gateway/types.js"
-import type { TelemetryCollector } from "./telemetry/TelemetryCollector.js"
+import type { TelemetryCollector, ToolCaptureConfig } from "./telemetry/TelemetryCollector.js"
 
 export type CellOptions<T extends FastMCPSessionAuth = FastMCPSessionAuth> = ServerOptions<T> & {
   artifacts?: ArtifactConfig[]
@@ -48,6 +48,13 @@ export type CellTool<
   T extends FastMCPSessionAuth = FastMCPSessionAuth,
   P extends ToolParameters = ToolParameters,
 > = Tool<T, P>
+
+export type CellToolOptions<
+  T extends FastMCPSessionAuth = FastMCPSessionAuth,
+  P extends ToolParameters = ToolParameters,
+> = Tool<T, P> & {
+  captureConfig?: ToolCaptureConfig
+}
 
 export type CellInstance<T extends FastMCPSessionAuth = FastMCPSessionAuth> = {
   readonly name: string

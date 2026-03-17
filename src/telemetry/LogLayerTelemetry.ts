@@ -10,6 +10,9 @@ export const createLogLayerTelemetry = (logger: ILogLayer): TelemetryCollector =
       eventName: event.name,
       timestamp: new Date(event.timestamp).toISOString(),
       type: event.type,
+      ...(event.sessionId && { sessionId: event.sessionId }),
+      ...(event.requestId && { requestId: event.requestId }),
+      ...(event.errorCategory && { errorCategory: event.errorCategory }),
       ...event.data,
     }
 
