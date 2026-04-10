@@ -19,7 +19,7 @@ describe("ConsoleTelemetry", () => {
 
     telemetry.recordEvent(event)
 
-    // loglayer routes info-level to console.info or console.log
+    // functype-log routes info-level to console.info or console.log
     const called = infoSpy.mock.calls.length > 0 || logSpy.mock.calls.length > 0
     expect(called).toBe(true)
     infoSpy.mockRestore()

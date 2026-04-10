@@ -25,7 +25,7 @@ export { wrapPrompt, wrapResource, wrapTool } from "./telemetry/index.js"
 
 // Logging
 export { createDefaultLogger } from "./logging.js"
-export type { ILogLayer } from "loglayer"
+export type { DirectLogger } from "functype-log"
 
 // Artifacts
 export type { ArtifactConfig, DirectoryArtifact, DynamicArtifact, StaticArtifact } from "./artifacts/index.js"

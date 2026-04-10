@@ -1,10 +1,5 @@
-import type { ILogLayer } from "loglayer"
-import { ConsoleTransport, LogLayer } from "loglayer"
+import type { DirectLogger } from "functype-log"
+import { createDirectConsoleLogger } from "functype-log"
 
-export const createDefaultLogger = (name: string): ILogLayer =>
-  new LogLayer({
-    prefix: `[${name}]`,
-    transport: new ConsoleTransport({
-      logger: console,
-    }),
-  }).withContext({ cell: name })
+export const createDefaultLogger = (name: string): DirectLogger =>
+  createDirectConsoleLogger({ prefix: `[${name}]` }).withContext({ cell: name })

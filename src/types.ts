@@ -10,8 +10,8 @@ import type {
   Tool,
   ToolParameters,
 } from "fastmcp"
+import type { DirectLogger } from "functype-log"
 import type { Hono } from "hono"
-import type { ILogLayer } from "loglayer"
 
 import type { ArtifactConfig } from "./artifacts/types.js"
 import type { GatewayConfig, GatewayManagerInstance } from "./gateway/types.js"
@@ -22,7 +22,7 @@ export type CellOptions<T extends FastMCPSessionAuth = FastMCPSessionAuth> = Ser
   enableDashboard?: boolean
   enableIntrospection?: boolean
   gateways?: GatewayConfig[]
-  logLayer?: ILogLayer
+  logLayer?: DirectLogger
   telemetry?: TelemetryCollector
 }
 

@@ -1,8 +1,8 @@
-import type { ILogLayer } from "loglayer"
+import type { DirectLogger } from "functype-log"
 
 import type { TelemetryCollector, TelemetryEvent } from "./TelemetryCollector.js"
 
-export const createLogLayerTelemetry = (logger: ILogLayer): TelemetryCollector => ({
+export const createLogLayerTelemetry = (logger: DirectLogger): TelemetryCollector => ({
   flush: () => Promise.resolve(),
   recordEvent: (event: TelemetryEvent) => {
     const metadata: Record<string, unknown> = {
@@ -17,9 +17,9 @@ export const createLogLayerTelemetry = (logger: ILogLayer): TelemetryCollector =
     }
 
     if (event.error) {
-      logger.withMetadata(metadata).withError(new Error(event.error)).error(event.type)
+      logger.withError(new Error(event.error)).error(event.type, metadata)
     } else {
-      logger.withMetadata(metadata).info(event.type)
+      logger.info(event.type, metadata)
     }
   },
 })

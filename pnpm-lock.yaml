@@ -16,12 +16,12 @@ importers:
       functype:
         specifier: ^0.56.0
         version: 0.56.0
+      functype-log:
+        specifier: ^0.2.0
+        version: 0.2.0(functype@0.56.0)
       hono:
         specifier: ^4.12.12
         version: 4.12.12
-      loglayer:
-        specifier: ^9.1.0
-        version: 9.1.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -1545,6 +1545,13 @@ packages:
   function-bind@1.1.2:
     resolution:
       { integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA== }
+
+  functype-log@0.2.0:
+    resolution:
+      { integrity: sha512-dsyqokajqMCTm9wUQXCwEmzNbXtHUnPiPDAtF2M3Bt3UCm7DKsrpsl00vnnPpHk3Bfkh4JRk0OCujiolSESrHA== }
+    engines: { node: ">=18.17.0" }
+    peerDependencies:
+      functype: ">=0.55.0"
 
   functype-os@0.4.2:
     resolution:
@@ -3842,6 +3849,11 @@ snapshots:
     optional: true
 
   function-bind@1.1.2: {}
+
+  functype-log@0.2.0(functype@0.56.0):
+    dependencies:
+      functype: 0.56.0
+      loglayer: 9.1.0
 
   functype-os@0.4.2(functype@0.56.0):
     dependencies:
