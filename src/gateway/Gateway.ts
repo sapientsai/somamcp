@@ -1,26 +1,27 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import type { Tool as MCPTool } from "@modelcontextprotocol/sdk/types.js"
+import { Ref } from "functype"
 
 import type { TelemetryCollector } from "../telemetry/TelemetryCollector.js"
 import type { GatewayConfig, GatewayInstance, GatewayStatus } from "./types.js"
 
 export const createGateway = (config: GatewayConfig, telemetry: TelemetryCollector): GatewayInstance => {
-  /* eslint-disable functional/no-let -- closure state for factory */
-  let client: Client | undefined
-  let transport: StreamableHTTPClientTransport | undefined
-  let remoteTools: MCPTool[] = []
-  let currentStatus: GatewayStatus = "disconnected"
-  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
-  /* eslint-enable functional/no-let */
+  const client = Ref<Client | undefined>(undefined)
+  const transport = Ref<StreamableHTTPClientTransport | undefined>(undefined)
+  const remoteTools = Ref<MCPTool[]>([])
+  const currentStatus = Ref<GatewayStatus>("disconnected")
+  const reconnectTimer = Ref<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const gatewayName = config.name ?? config.id
 
   const scheduleReconnect = (): void => {
     const interval = config.reconnectIntervalMs ?? 5000
-    reconnectTimer = setTimeout(() => {
-      void instance.connect()
-    }, interval)
+    reconnectTimer.set(
+      setTimeout(() => {
+        void instance.connect()
+      }, interval),
+    )
   }
 
   const instance: GatewayInstance = {
@@ -31,11 +32,11 @@ export const createGateway = (config: GatewayConfig, telemetry: TelemetryCollect
       return {
         id: config.id,
         name: gatewayName,
-        remoteTools: remoteTools.map((t) => ({
+        remoteTools: remoteTools.get().map((t) => ({
           description: t.description,
           name: t.name,
         })),
-        status: currentStatus,
+        status: currentStatus.get(),
         url: config.url,
       }
     },
@@ -43,45 +44,48 @@ export const createGateway = (config: GatewayConfig, telemetry: TelemetryCollect
       return gatewayName
     },
     get status() {
-      return currentStatus
+      return currentStatus.get()
     },
     get tools() {
-      return remoteTools as ReadonlyArray<MCPTool>
+      return remoteTools.get() as ReadonlyArray<MCPTool>
     },
 
     async callTool(name: string, args: Record<string, unknown> = {}): Promise<unknown> {
-      if (!client || currentStatus !== "connected") {
+      const c = client.get()
+      if (!c || currentStatus.get() !== "connected") {
         throw new Error(`Gateway ${config.id} is not connected`)
       }
-      const result = await client.callTool({ arguments: args, name })
+      const result = await c.callTool({ arguments: args, name })
       return result
     },
 
     async connect(): Promise<void> {
-      if (currentStatus === "connected") return
+      if (currentStatus.get() === "connected") return
 
-      currentStatus = "connecting"
+      currentStatus.set("connecting")
       const start = Date.now()
 
       try {
-        transport = new StreamableHTTPClientTransport(new URL(config.url))
+        const t = new StreamableHTTPClientTransport(new URL(config.url))
+        transport.set(t)
 
-        client = new Client({
+        const c = new Client({
           name: `soma-gateway-${config.id}`,
           version: "1.0.0",
         })
+        client.set(c)
 
-        await client.connect(transport)
+        await c.connect(t)
 
-        const toolsResult = await client.listTools()
-        remoteTools = toolsResult.tools
+        const toolsResult = await c.listTools()
+        remoteTools.set(toolsResult.tools)
 
-        currentStatus = "connected"
+        currentStatus.set("connected")
 
         telemetry.recordEvent({
           data: {
             id: config.id,
-            remoteToolCount: remoteTools.length,
+            remoteToolCount: remoteTools.get().length,
             url: config.url,
           },
           durationMs: Date.now() - start,
@@ -90,7 +94,7 @@ export const createGateway = (config: GatewayConfig, telemetry: TelemetryCollect
           type: "gateway.connect",
         })
       } catch (error) {
-        currentStatus = "error"
+        currentStatus.set("error")
 
         telemetry.recordEvent({
           data: { id: config.id, url: config.url },
@@ -107,23 +111,25 @@ export const createGateway = (config: GatewayConfig, telemetry: TelemetryCollect
     },
 
     async disconnect(): Promise<void> {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer)
-        reconnectTimer = undefined
+      const timer = reconnectTimer.get()
+      if (timer) {
+        clearTimeout(timer)
+        reconnectTimer.set(undefined)
       }
 
-      if (client) {
+      const c = client.get()
+      if (c) {
         try {
-          await client.close()
+          await c.close()
         } catch {
           // ignore close errors
         }
       }
 
-      client = undefined
-      transport = undefined
-      remoteTools = []
-      currentStatus = "disconnected"
+      client.set(undefined)
+      transport.set(undefined)
+      remoteTools.set([])
+      currentStatus.set("disconnected")
 
       telemetry.recordEvent({
         data: { id: config.id },

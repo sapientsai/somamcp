@@ -10,6 +10,7 @@ import {
   type Tool,
   type ToolParameters,
 } from "fastmcp"
+import { Ref } from "functype"
 import type { Hono } from "hono"
 
 import { registerArtifacts } from "./artifacts/ArtifactManager.js"
@@ -51,8 +52,8 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     uri: string
   }> = []
   const registeredPrompts: Array<{ description?: string; name: string }> = []
-  // eslint-disable-next-line functional/no-let -- closure state for factory
-  let startedAt = 0
+
+  const startedAt = Ref(0)
 
   // Register gateways
   if (gateways) {
@@ -62,11 +63,12 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
   }
 
   const getHealth = (): CellHealth => {
-    const uptime = startedAt > 0 ? Date.now() - startedAt : 0
+    const started = startedAt.get()
+    const uptime = started > 0 ? Date.now() - started : 0
     return {
       activeSessions: server.sessions.length,
       name: cellName,
-      startedAt,
+      startedAt: started,
       status:
         server.serverState === ServerState.Running
           ? "running"
@@ -213,11 +215,11 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     },
 
     async start(options?: Parameters<FastMCP<T>["start"]>[0]): Promise<void> {
-      startedAt = Date.now()
+      startedAt.set(Date.now())
 
       telemetry.recordEvent({
         name: cellName,
-        timestamp: startedAt,
+        timestamp: startedAt.get(),
         type: "cell.start",
       })
 
