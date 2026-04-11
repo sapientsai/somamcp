@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest"
 import { createCapabilitiesTool } from "../../src/introspection/capabilitiesTool.js"
 import { createConnectionsTool } from "../../src/introspection/connectionsTool.js"
 import { createHealthTool } from "../../src/introspection/healthTool.js"
-import type { CellCapabilities, CellHealth } from "../../src/types.js"
+import type { ServerCapabilities, ServerHealth } from "../../src/types.js"
 
 describe("introspection tools", () => {
   describe("soma_health", () => {
     it("returns health as JSON string", async () => {
-      const health: CellHealth = {
+      const health: ServerHealth = {
         activeSessions: 2,
         name: "test",
         startedAt: 1000,
@@ -29,7 +29,7 @@ describe("introspection tools", () => {
 
   describe("soma_capabilities", () => {
     it("returns capabilities as JSON string", async () => {
-      const capabilities: CellCapabilities = {
+      const capabilities: ServerCapabilities = {
         prompts: [{ description: "A prompt", name: "p1" }],
         resources: [{ description: "A res", name: "r1", uri: "res://1" }],
         tools: [{ description: "A tool", name: "t1" }],

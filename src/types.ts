@@ -1,24 +1,16 @@
-import type {
-  FastMCP,
-  FastMCPSession,
-  FastMCPSessionAuth,
-  InputPrompt,
-  InputPromptArgument,
-  Resource,
-  ServerOptions,
-  ServerState,
-  Tool,
-  ToolParameters,
-} from "fastmcp"
 import type { DirectLogger } from "functype-log"
 import type { Hono } from "hono"
 
 import type { ArtifactConfig } from "./artifacts/types.js"
+import type { BackendSession } from "./backend/adapter.js"
 import type { GatewayConfig, GatewayManagerInstance } from "./gateway/types.js"
 import type { TelemetryCollector, ToolCaptureConfig } from "./telemetry/TelemetryCollector.js"
+import type { Prompt, PromptArgument, Resource, SchemaParams, ServerStatus, SessionAuth, Tool } from "./types/core.js"
+import type { ServerConfig, TransportConfig } from "./types/server.js"
 
-export type CellOptions<T extends FastMCPSessionAuth = FastMCPSessionAuth> = ServerOptions<T> & {
+export type SomaServerOptions<T extends SessionAuth = SessionAuth> = ServerConfig<T> & {
   artifacts?: ArtifactConfig[]
+  backendOptions?: Record<string, unknown>
   enableDashboard?: boolean
   enableIntrospection?: boolean
   gateways?: GatewayConfig[]
@@ -26,54 +18,46 @@ export type CellOptions<T extends FastMCPSessionAuth = FastMCPSessionAuth> = Ser
   telemetry?: TelemetryCollector
 }
 
-export type CellHealth = {
+export type ServerHealth = {
   activeSessions: number
-  name: string
-  startedAt: number
-  status: "running" | "stopped" | "error"
   gateways: {
     connected: number
     total: number
   }
+  name: string
+  startedAt: number
+  status: ServerStatus
   uptime: number
 }
 
-export type CellCapabilities = {
+export type ServerCapabilities = {
   prompts: ReadonlyArray<{ description?: string; name: string }>
   resources: ReadonlyArray<{ description?: string; name: string; uri: string }>
   tools: ReadonlyArray<{ description?: string; name: string }>
 }
 
-export type CellTool<
-  T extends FastMCPSessionAuth = FastMCPSessionAuth,
-  P extends ToolParameters = ToolParameters,
-> = Tool<T, P>
-
-export type CellToolOptions<
-  T extends FastMCPSessionAuth = FastMCPSessionAuth,
-  P extends ToolParameters = ToolParameters,
-> = Tool<T, P> & {
+export type ToolOptions<T extends SessionAuth = SessionAuth, P extends SchemaParams = SchemaParams> = Tool<T, P> & {
   captureConfig?: ToolCaptureConfig
 }
 
-export type CellInstance<T extends FastMCPSessionAuth = FastMCPSessionAuth> = {
+export type SomaServerInstance<T extends SessionAuth = SessionAuth> = {
   readonly name: string
-  readonly serverState: ServerState
-  readonly sessions: FastMCPSession<T>[]
-  addPrompt: <Args extends InputPromptArgument<T>[]>(prompt: InputPrompt<T, Args>) => void
-  addPrompts: <Args extends InputPromptArgument<T>[]>(prompts: InputPrompt<T, Args>[]) => void
+  readonly serverState: ServerStatus
+  readonly sessions: ReadonlyArray<BackendSession<T>>
+  addPrompt: <Args extends PromptArgument<T>[]>(prompt: Prompt<T, Args>) => void
+  addPrompts: <Args extends PromptArgument<T>[]>(prompts: Prompt<T, Args>[]) => void
   addResource: (resource: Resource<T>) => void
   addResources: (resources: Resource<T>[]) => void
-  addResourceTemplate: (...args: Parameters<FastMCP<T>["addResourceTemplate"]>) => void
-  addTool: <P extends ToolParameters>(tool: Tool<T, P>) => void
-  addTools: <P extends ToolParameters>(tools: Tool<T, P>[]) => void
+  addResourceTemplate: (...args: ReadonlyArray<unknown>) => void
+  addTool: <P extends SchemaParams>(tool: Tool<T, P>) => void
+  addTools: <P extends SchemaParams>(tools: Tool<T, P>[]) => void
   getApp: () => Hono
-  getCapabilities: () => CellCapabilities
+  getCapabilities: () => ServerCapabilities
   getGatewayManager: () => GatewayManagerInstance
-  getHealth: () => CellHealth
+  getHealth: () => ServerHealth
   removePrompt: (name: string) => void
   removeResource: (name: string) => void
   removeTool: (name: string) => void
-  start: (options?: Parameters<FastMCP<T>["start"]>[0]) => Promise<void>
+  start: (options?: TransportConfig) => Promise<void>
   stop: () => Promise<void>
 }

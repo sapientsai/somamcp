@@ -1,7 +1,7 @@
 {
   "name": "somamcp",
   "version": "0.1.0",
-  "description": "Cell-based architecture framework for MCP servers",
+  "description": "Framework for building MCP servers with telemetry, introspection, and backend abstraction",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -11,6 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./backend": {
+      "types": "./dist/backend/index.d.ts",
+      "import": "./dist/backend/index.js"
     }
   },
   "files": [
@@ -33,10 +37,10 @@
   },
   "keywords": [
     "MCP",
-    "cell",
-    "architecture",
-    "fastmcp",
-    "gateway"
+    "server",
+    "telemetry",
+    "introspection",
+    "backend-adapter"
   ],
   "author": "Jordan Burke",
   "license": "MIT",

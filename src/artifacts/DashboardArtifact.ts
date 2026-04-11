@@ -1,10 +1,10 @@
 import type { GatewayInfo } from "../gateway/types.js"
-import type { CellCapabilities, CellHealth } from "../types.js"
+import type { ServerCapabilities, ServerHealth } from "../types.js"
 import type { ArtifactConfig } from "./types.js"
 
 export const createDashboardArtifact = (
-  getHealth: () => CellHealth,
-  getCapabilities: () => CellCapabilities,
+  getHealth: () => ServerHealth,
+  getCapabilities: () => ServerCapabilities,
   getConnections: () => ReadonlyArray<GatewayInfo>,
 ): ArtifactConfig => ({
   handler: () => {
@@ -21,8 +21,8 @@ export const createDashboardArtifact = (
 })
 
 const renderDashboard = (
-  health: CellHealth,
-  capabilities: CellCapabilities,
+  health: ServerHealth,
+  capabilities: ServerCapabilities,
   connections: ReadonlyArray<GatewayInfo>,
 ): string => `<!DOCTYPE html>
 <html lang="en">

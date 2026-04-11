@@ -1,6 +1,6 @@
 export type TelemetryEventType =
-  | "cell.start"
-  | "cell.stop"
+  | "server.start"
+  | "server.stop"
   | "tool.execute"
   | "tool.error"
   | "resource.load"

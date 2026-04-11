@@ -1,7 +1,7 @@
 import { directSilentLogger } from "functype-log"
 import { describe, expect, it } from "vitest"
 
-import { createCell } from "../src/Cell.js"
+import { createServer } from "../src/Server.js"
 import type { TelemetryCollector, TelemetryEvent } from "../src/telemetry/TelemetryCollector.js"
 
 const createCollector = (): TelemetryCollector & {
@@ -11,160 +11,160 @@ const createCollector = (): TelemetryCollector & {
   return { events, recordEvent: (e) => events.push(e) }
 }
 
-describe("Cell", () => {
-  it("creates a cell with default options", () => {
-    const cell = createCell({ name: "test-cell", version: "1.0.0" })
-    expect(cell.name).toBe("test-cell")
-    expect(cell.serverState).toBe("stopped")
+describe("Server", () => {
+  it("creates a server with default options", () => {
+    const server = createServer({ name: "test-server", version: "1.0.0" })
+    expect(server.name).toBe("test-server")
+    expect(server.serverState).toBe("stopped")
   })
 
   it("registers tools with telemetry wrapping", async () => {
     const telemetry = createCollector()
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
-      name: "tool-cell",
+      name: "tool-server",
       telemetry,
       version: "1.0.0",
     })
 
-    cell.addTool({
+    server.addTool({
       execute: async () => "hello",
       name: "greet",
     })
 
-    const capabilities = cell.getCapabilities()
+    const capabilities = server.getCapabilities()
     expect(capabilities.tools).toHaveLength(1)
     expect(capabilities.tools[0]?.name).toBe("greet")
   })
 
   it("registers resources with telemetry wrapping", () => {
     const telemetry = createCollector()
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
-      name: "res-cell",
+      name: "res-server",
       telemetry,
       version: "1.0.0",
     })
 
-    cell.addResource({
+    server.addResource({
       load: async () => ({ text: "data" }),
       name: "my-res",
       uri: "res://test",
     })
 
-    const capabilities = cell.getCapabilities()
+    const capabilities = server.getCapabilities()
     expect(capabilities.resources).toHaveLength(1)
     expect(capabilities.resources[0]?.name).toBe("my-res")
   })
 
   it("registers prompts with telemetry wrapping", () => {
     const telemetry = createCollector()
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
-      name: "prompt-cell",
+      name: "prompt-server",
       telemetry,
       version: "1.0.0",
     })
 
-    cell.addPrompt({
+    server.addPrompt({
       load: async () => "answer",
       name: "my-prompt",
     })
 
-    const capabilities = cell.getCapabilities()
+    const capabilities = server.getCapabilities()
     expect(capabilities.prompts).toHaveLength(1)
     expect(capabilities.prompts[0]?.name).toBe("my-prompt")
   })
 
   it("reports health with stopped status before start", () => {
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
-      name: "health-cell",
+      name: "health-server",
       version: "1.0.0",
     })
 
-    const health = cell.getHealth()
+    const health = server.getHealth()
     expect(health.status).toBe("stopped")
-    expect(health.name).toBe("health-cell")
+    expect(health.name).toBe("health-server")
     expect(health.uptime).toBe(0)
     expect(health.activeSessions).toBe(0)
     expect(health.gateways.total).toBe(0)
   })
 
   it("exposes the Hono app via getApp()", () => {
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
-      name: "app-cell",
+      name: "app-server",
       version: "1.0.0",
     })
 
-    const app = cell.getApp()
+    const app = server.getApp()
     expect(app).toBeDefined()
   })
 
   it("disables introspection tools when enableIntrospection is false", () => {
-    const cell = createCell({
+    const server = createServer({
       enableIntrospection: false,
       name: "no-intro",
       version: "1.0.0",
     })
 
-    const capabilities = cell.getCapabilities()
+    const capabilities = server.getCapabilities()
     expect(capabilities.tools.find((t) => t.name === "soma_health")).toBeUndefined()
   })
 
   it("getGatewayManager returns the manager", () => {
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
       gateways: [{ id: "remote", url: "http://localhost:9999/mcp" }],
-      name: "syn-cell",
+      name: "gw-server",
       version: "1.0.0",
     })
 
-    const manager = cell.getGatewayManager()
+    const manager = server.getGatewayManager()
     expect(manager.totalCount).toBe(1)
   })
 
   it("accepts a logger option and routes telemetry through it", () => {
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
       logLayer: directSilentLogger,
-      name: "logger-cell",
+      name: "logger-server",
       version: "1.0.0",
     })
 
-    cell.addTool({
+    server.addTool({
       execute: async () => "hello",
       name: "greet",
     })
 
-    expect(cell.name).toBe("logger-cell")
+    expect(server.name).toBe("logger-server")
   })
 
   it("telemetry option takes priority over logger option", () => {
     const telemetry = createCollector()
 
-    const cell = createCell({
+    const server = createServer({
       enableDashboard: false,
       enableIntrospection: false,
       logLayer: directSilentLogger,
-      name: "priority-cell",
+      name: "priority-server",
       telemetry,
       version: "1.0.0",
     })
 
-    cell.addTool({
+    server.addTool({
       execute: async () => "hello",
       name: "greet",
     })
 
-    expect(cell.name).toBe("priority-cell")
+    expect(server.name).toBe("priority-server")
   })
 })

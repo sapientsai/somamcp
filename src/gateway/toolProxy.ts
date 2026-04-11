@@ -1,13 +1,13 @@
-import type { ContentResult, FastMCPSessionAuth, Tool } from "fastmcp"
 import { Try } from "functype"
 
 import { createEnrichedError } from "../telemetry/EnrichedError.js"
 import type { TelemetryCollector } from "../telemetry/TelemetryCollector.js"
+import type { ContentResult, SessionAuth, Tool } from "../types/core.js"
 import type { GatewayInstance } from "./types.js"
 
 const toTry = <T>(promise: Promise<T>): Promise<Try<T>> => Try.fromPromise(promise)
 
-export const createProxiedTools = <T extends FastMCPSessionAuth>(
+export const createProxiedTools = <T extends SessionAuth>(
   gateway: GatewayInstance,
   telemetry?: TelemetryCollector,
 ): ReadonlyArray<Tool<T>> => {

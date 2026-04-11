@@ -1,6 +1,40 @@
 // Core
-export { createCell } from "./Cell.js"
-export type { CellCapabilities, CellHealth, CellInstance, CellOptions, CellTool, CellToolOptions } from "./types.js"
+export { createServer } from "./Server.js"
+export type { ServerCapabilities, ServerHealth, SomaServerInstance, SomaServerOptions, ToolOptions } from "./types.js"
+
+// Types (somamcp-owned MCP primitives)
+export type {
+  AudioContent,
+  Completion,
+  Content,
+  ContentResult,
+  Context,
+  ImageContent,
+  InferSchemaOutput,
+  Progress,
+  Prompt,
+  PromptArgument,
+  PromptResult,
+  Resource,
+  ResourceContent,
+  ResourceLink,
+  ResourceResult,
+  SchemaParams,
+  ServerStatus,
+  SessionAuth,
+  TextContent,
+  Tool,
+  ToolAnnotations,
+} from "./types/index.js"
+export type { Logger, ServerConfig, TransportConfig } from "./types/index.js"
+export { UserError } from "./types/index.js"
+
+// Content helpers
+export { audioContent, imageContent } from "./content/index.js"
+
+// Backend
+export type { BackendAdapter, BackendFactory, BackendSession } from "./backend/index.js"
+export { createFastMCPBackend } from "./backend/index.js"
 
 // Telemetry
 export type {
@@ -43,25 +77,3 @@ export type {
   GatewayStatus,
 } from "./gateway/index.js"
 export { createGateway, createGatewayManager, createProxiedTools } from "./gateway/index.js"
-
-// Re-export key FastMCP types
-export type {
-  Content,
-  ContentResult,
-  Context,
-  InputPrompt,
-  InputPromptArgument,
-  Resource,
-  ServerOptions,
-  Tool,
-  ToolParameters,
-} from "fastmcp"
-export {
-  audioContent,
-  FastMCP,
-  type FastMCPSession,
-  type FastMCPSessionAuth,
-  imageContent,
-  ServerState,
-  UserError,
-} from "fastmcp"

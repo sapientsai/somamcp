@@ -1,20 +1,10 @@
-import {
-  FastMCP,
-  type FastMCPSession,
-  type FastMCPSessionAuth,
-  type InputPrompt,
-  type InputPromptArgument,
-  type Resource,
-  type ServerOptions,
-  ServerState,
-  type Tool,
-  type ToolParameters,
-} from "fastmcp"
 import { Ref } from "functype"
 import type { Hono } from "hono"
 
 import { registerArtifacts } from "./artifacts/ArtifactManager.js"
 import { createDashboardArtifact } from "./artifacts/DashboardArtifact.js"
+import type { BackendSession } from "./backend/adapter.js"
+import { createFastMCPBackend } from "./backend/fastmcp.js"
 import { createGatewayManager } from "./gateway/GatewayManager.js"
 import { createProxiedTools } from "./gateway/toolProxy.js"
 import { createCapabilitiesTool } from "./introspection/capabilitiesTool.js"
@@ -24,25 +14,28 @@ import { createLogLayerTelemetry } from "./telemetry/LogLayerTelemetry.js"
 import { NoopTelemetry } from "./telemetry/NoopTelemetry.js"
 import type { TelemetryCollector } from "./telemetry/TelemetryCollector.js"
 import { wrapPrompt, wrapResource, wrapTool } from "./telemetry/telemetryWrapper.js"
-import type { CellCapabilities, CellHealth, CellInstance, CellOptions, CellToolOptions } from "./types.js"
+import type { ServerCapabilities, ServerHealth, SomaServerInstance, SomaServerOptions, ToolOptions } from "./types.js"
+import type { SchemaParams, SessionAuth, Tool } from "./types/core.js"
+import type { TransportConfig } from "./types/server.js"
 
-export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
-  options: CellOptions<T>,
-): CellInstance<T> => {
+export const createServer = <T extends SessionAuth = SessionAuth>(
+  options: SomaServerOptions<T>,
+): SomaServerInstance<T> => {
   const {
     artifacts,
+    backendOptions,
     enableDashboard,
     enableIntrospection,
     gateways,
     logLayer,
     telemetry: telemetryOption,
-    ...serverOptions
+    ...serverConfig
   } = options
 
-  const cellName = serverOptions.name
+  const serverName = serverConfig.name
   const telemetry: TelemetryCollector =
     telemetryOption ?? (logLayer ? createLogLayerTelemetry(logLayer) : NoopTelemetry)
-  const server = new FastMCP<T>(serverOptions as ServerOptions<T>)
+  const backend = createFastMCPBackend<T>(serverConfig, backendOptions)
   const gatewayManager = createGatewayManager(telemetry)
 
   const registeredTools: Array<{ description?: string; name: string }> = []
@@ -62,28 +55,23 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     }
   }
 
-  const getHealth = (): CellHealth => {
+  const getHealth = (): ServerHealth => {
     const started = startedAt.get()
     const uptime = started > 0 ? Date.now() - started : 0
     return {
-      activeSessions: server.sessions.length,
-      name: cellName,
-      startedAt: started,
-      status:
-        server.serverState === ServerState.Running
-          ? "running"
-          : server.serverState === ServerState.Error
-            ? "error"
-            : "stopped",
+      activeSessions: backend.sessions.length,
       gateways: {
         connected: gatewayManager.connectedCount,
         total: gatewayManager.totalCount,
       },
+      name: serverName,
+      startedAt: started,
+      status: backend.serverState,
       uptime,
     }
   }
 
-  const getCapabilities = (): CellCapabilities => ({
+  const getCapabilities = (): ServerCapabilities => ({
     prompts: registeredPrompts,
     resources: registeredResources,
     tools: registeredTools,
@@ -91,9 +79,9 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
 
   // Register introspection tools (default: enabled)
   if (enableIntrospection !== false) {
-    server.addTool(createHealthTool<T>(() => getHealth()))
-    server.addTool(createCapabilitiesTool<T>(() => getCapabilities()))
-    server.addTool(createConnectionsTool<T>(() => gatewayManager.getInfoAll()))
+    backend.addTool(createHealthTool<T>(() => getHealth()))
+    backend.addTool(createCapabilitiesTool<T>(() => getCapabilities()))
+    backend.addTool(createConnectionsTool<T>(() => gatewayManager.getInfoAll()))
   }
 
   // Register artifacts on the Hono app
@@ -108,40 +96,40 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     )
   }
   if (allArtifacts.length > 0) {
-    registerArtifacts(server.getApp(), allArtifacts)
+    registerArtifacts(backend.getApp(), allArtifacts)
   }
 
   // Wire session telemetry
-  server.on("connect", ({ session }) => {
+  backend.on("connect", ({ session }) => {
     telemetry.recordEvent({
-      data: { sessionId: (session as FastMCPSession<T>).sessionId },
-      name: cellName,
+      data: { sessionId: (session as BackendSession<T>).sessionId },
+      name: serverName,
       timestamp: Date.now(),
       type: "session.connect",
     })
   })
-  server.on("disconnect", ({ session }) => {
+  backend.on("disconnect", ({ session }) => {
     telemetry.recordEvent({
-      data: { sessionId: (session as FastMCPSession<T>).sessionId },
-      name: cellName,
+      data: { sessionId: (session as BackendSession<T>).sessionId },
+      name: serverName,
       timestamp: Date.now(),
       type: "session.disconnect",
     })
   })
 
-  const addTool = <P extends ToolParameters>(tool: Tool<T, P> | CellToolOptions<T, P>): void => {
+  const addTool = <P extends SchemaParams>(tool: Tool<T, P> | ToolOptions<T, P>): void => {
     const captureConfig = "captureConfig" in tool ? tool.captureConfig : undefined
     const wrapped = wrapTool(tool, telemetry, captureConfig)
-    server.addTool(wrapped)
+    backend.addTool(wrapped)
     registeredTools.push({
       description: tool.description,
       name: tool.name,
     })
   }
 
-  const addResource = (resource: Resource<T>): void => {
+  const addResource = (resource: Parameters<SomaServerInstance<T>["addResource"]>[0]): void => {
     const wrapped = wrapResource(resource, telemetry)
-    server.addResource(wrapped)
+    backend.addResource(wrapped)
     registeredResources.push({
       description: resource.description,
       name: resource.name,
@@ -149,9 +137,9 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     })
   }
 
-  const addPrompt = <Args extends InputPromptArgument<T>[]>(prompt: InputPrompt<T, Args>): void => {
+  const addPrompt = (prompt: Parameters<SomaServerInstance<T>["addPrompt"]>[0]): void => {
     const wrapped = wrapPrompt(prompt, telemetry)
-    server.addPrompt(wrapped)
+    backend.addPrompt(wrapped)
     registeredPrompts.push({
       description: prompt.description,
       name: prompt.name,
@@ -160,41 +148,41 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
 
   return {
     get name() {
-      return cellName
+      return serverName
     },
     get serverState() {
-      return server.serverState
+      return backend.serverState
     },
     get sessions() {
-      return server.sessions
+      return backend.sessions
     },
 
     addPrompt,
-    addPrompts: <Args extends InputPromptArgument<T>[]>(prompts: InputPrompt<T, Args>[]): void => {
+    addPrompts: (prompts: Parameters<SomaServerInstance<T>["addPrompts"]>[0]): void => {
       for (const prompt of prompts) {
         addPrompt(prompt)
       }
     },
 
     addResource,
-    addResources: (resources: Resource<T>[]): void => {
+    addResources: (resources: Parameters<SomaServerInstance<T>["addResources"]>[0]): void => {
       for (const resource of resources) {
         addResource(resource)
       }
     },
 
-    addResourceTemplate: (...args: Parameters<FastMCP<T>["addResourceTemplate"]>): void => {
-      server.addResourceTemplate(...args)
+    addResourceTemplate: (...args: ReadonlyArray<unknown>): void => {
+      backend.addResourceTemplate(...args)
     },
 
     addTool,
-    addTools: <P extends ToolParameters>(tools: Tool<T, P>[]): void => {
+    addTools: <P extends SchemaParams>(tools: Tool<T, P>[]): void => {
       for (const tool of tools) {
         addTool(tool)
       }
     },
 
-    getApp: (): Hono => server.getApp(),
+    getApp: (): Hono => backend.getApp(),
 
     getCapabilities,
 
@@ -203,27 +191,27 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
     getHealth,
 
     removePrompt: (name: string): void => {
-      server.removePrompt(name)
+      backend.removePrompt(name)
     },
 
     removeResource: (name: string): void => {
-      server.removeResource(name)
+      backend.removeResource(name)
     },
 
     removeTool: (name: string): void => {
-      server.removeTool(name)
+      backend.removeTool(name)
     },
 
-    async start(options?: Parameters<FastMCP<T>["start"]>[0]): Promise<void> {
+    async start(transport?: TransportConfig): Promise<void> {
       startedAt.set(Date.now())
 
       telemetry.recordEvent({
-        name: cellName,
+        name: serverName,
         timestamp: startedAt.get(),
-        type: "cell.start",
+        type: "server.start",
       })
 
-      await server.start(options)
+      await backend.start(transport)
 
       // Connect gateways and proxy their tools
       await gatewayManager.connectAll()
@@ -232,7 +220,7 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
         if (gateway.status === "connected" && gateway.config.proxyTools !== false) {
           const proxiedTools = createProxiedTools<T>(gateway, telemetry)
           for (const tool of proxiedTools) {
-            server.addTool(tool)
+            backend.addTool(tool)
           }
         }
       }
@@ -240,12 +228,12 @@ export const createCell = <T extends FastMCPSessionAuth = FastMCPSessionAuth>(
 
     async stop(): Promise<void> {
       await gatewayManager.disconnectAll()
-      await server.stop()
+      await backend.stop()
 
       telemetry.recordEvent({
-        name: cellName,
+        name: serverName,
         timestamp: Date.now(),
-        type: "cell.stop",
+        type: "server.stop",
       })
 
       if (telemetry.flush) {

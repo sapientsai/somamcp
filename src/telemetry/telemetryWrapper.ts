@@ -1,14 +1,6 @@
-import type {
-  ContentResult,
-  FastMCPSessionAuth,
-  InputPrompt,
-  InputPromptArgument,
-  Resource,
-  Tool,
-  ToolParameters,
-} from "fastmcp"
 import { Try } from "functype"
 
+import type { ContentResult, Prompt, PromptArgument, Resource, SchemaParams, SessionAuth, Tool } from "../types/core.js"
 import { createEnrichedError } from "./EnrichedError.js"
 import type { TelemetryCollector, ToolCaptureConfig } from "./TelemetryCollector.js"
 
@@ -31,7 +23,7 @@ const truncateOutput = (result: unknown, maxSize: number = DEFAULT_MAX_OUTPUT_SI
 
 const toTry = <T>(promise: Promise<T>): Promise<Try<T>> => Try.fromPromise(promise)
 
-export const wrapTool = <T extends FastMCPSessionAuth, P extends ToolParameters>(
+export const wrapTool = <T extends SessionAuth, P extends SchemaParams>(
   tool: Tool<T, P>,
   telemetry: TelemetryCollector,
   captureConfig?: ToolCaptureConfig,
@@ -87,7 +79,7 @@ export const wrapTool = <T extends FastMCPSessionAuth, P extends ToolParameters>
   },
 })
 
-export const wrapResource = <T extends FastMCPSessionAuth>(
+export const wrapResource = <T extends SessionAuth>(
   resource: Resource<T>,
   telemetry: TelemetryCollector,
 ): Resource<T> => ({
@@ -125,13 +117,10 @@ export const wrapResource = <T extends FastMCPSessionAuth>(
   },
 })
 
-export const wrapPrompt = <
-  T extends FastMCPSessionAuth,
-  Args extends InputPromptArgument<T>[] = InputPromptArgument<T>[],
->(
-  prompt: InputPrompt<T, Args>,
+export const wrapPrompt = <T extends SessionAuth, Args extends PromptArgument<T>[] = PromptArgument<T>[]>(
+  prompt: Prompt<T, Args>,
   telemetry: TelemetryCollector,
-): InputPrompt<T, Args> => ({
+): Prompt<T, Args> => ({
   ...prompt,
   load: async (args, auth) => {
     const start = Date.now()
