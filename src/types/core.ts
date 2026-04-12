@@ -15,7 +15,12 @@ export type SchemaParams = {
     readonly version: 1
     readonly vendor: string
     readonly types?: { readonly input: unknown; readonly output: unknown } | undefined
-    readonly validate: (value: unknown) => { value: unknown } | { issues: ReadonlyArray<{ message: string }> }
+    readonly validate: (
+      value: unknown,
+    ) =>
+      | { value: unknown }
+      | { issues: ReadonlyArray<{ message: string }> }
+      | Promise<{ value: unknown } | { issues: ReadonlyArray<{ message: string }> }>
   }
 }
 
