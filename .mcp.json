@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "time": {
+      "command": "pnpm",
+      "args": ["--dir", "examples/time-server", "--silent", "dev:stdio"]
+    }
+  }
+}
