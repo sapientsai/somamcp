@@ -44,6 +44,14 @@
   ],
   "author": "Jordan Burke",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sapientsai/SomaMCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sapientsai/SomaMCP/issues"
+  },
+  "homepage": "https://github.com/sapientsai/SomaMCP#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "fastmcp": "^4.0.0",
